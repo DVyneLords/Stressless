@@ -1,6 +1,11 @@
 package za.co.rbi.st10448886.stressless
 
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,9 +16,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -22,6 +30,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -35,6 +44,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
@@ -46,6 +58,9 @@ import java.util.UUID
  * TaskFormScreen — single screen used for both creating a new task
  * (taskId == "new") and editing an existing one (taskId matches a real
  * task's id). Pre-fills fields from the existing task when editing.
+ * Also lets the user attach a photo, which is compressed and stored as a
+ * Base64 blob directly inside the Firestore task document (see ImageUtils) —
+ * this stands in for paid Firebase Cloud Storage, which this project isn't using.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,6 +84,30 @@ fun TaskFormScreen(taskId: String, onDone: () -> Unit) {
     var reminder by remember { mutableStateOf(existing?.reminder ?: "On time") }
     var reminderMenuOpen by remember { mutableStateOf(false) }
 
+    // Photo attachment state. Holds the Base64 string that will actually
+    // be saved (starts pre-filled from the existing task when editing), plus
+    // a decoded Bitmap kept only for the on-screen preview.
+    var imageBase64 by remember { mutableStateOf(existing?.imageBase64 ?: "") }
+    var previewBitmap by remember {
+        mutableStateOf<Bitmap?>(
+            existing?.imageBase64?.takeIf { it.isNotBlank() }?.let { ImageUtils.base64ToBitmap(it) }
+        )
+    }
+
+    // Launches the system photo picker; on a result, compress + encode
+    // the chosen image and update both the preview and the value that gets saved.
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            val encoded = ImageUtils.uriToCompressedBase64(context, uri)
+            if (encoded != null) {
+                imageBase64 = encoded
+                previewBitmap = ImageUtils.base64ToBitmap(encoded)
+            }
+        }
+    }
+
     /** Builds a Task from current form state and saves it (create or update), then schedules a reminder if applicable. */
     fun save() {
         // Parse the typed date string; falls back to 0 (no due date) on any bad input
@@ -79,6 +118,7 @@ fun TaskFormScreen(taskId: String, onDone: () -> Unit) {
             title = title, description = description,
             dueDate = millis, priority = priority, category = category,
             status = status, reminder = reminder,
+            imageBase64 = imageBase64,
             // Preserve existing subtasks — this form doesn't edit them directly (TaskDetailsScreen does)
             subtasks = existing?.subtasks ?: emptyList()
         )
@@ -108,12 +148,41 @@ fun TaskFormScreen(taskId: String, onDone: () -> Unit) {
             modifier = Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Decorative icon at the top of the form
+            // Photo attachment — shows the picked/existing image, or a
+            // placeholder "add photo" box when none is set yet.
             Box(
-                modifier = Modifier.size(56.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.AutoMirrored.Filled.Assignment, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                if (previewBitmap != null) {
+                    Image(
+                        bitmap = previewBitmap!!.asImageBitmap(),
+                        contentDescription = "Task photo",
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .clickable { imagePickerLauncher.launch("image/*") },
+                        contentScale = ContentScale.Crop
+                    )
+                    // Small remove button in the corner
+                    IconButton(
+                        onClick = { imageBase64 = ""; previewBitmap = null },
+                        modifier = Modifier.align(Alignment.TopEnd).size(28.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "Remove photo", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                } else {
+                    IconButton(onClick = { imagePickerLauncher.launch("image/*") }) {
+                        Icon(
+                            Icons.Default.AddAPhoto,
+                            contentDescription = "Add photo",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
             }
             Spacer(Modifier.height(16.dp))
 

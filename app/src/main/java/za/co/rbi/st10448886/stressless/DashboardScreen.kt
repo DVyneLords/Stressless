@@ -33,6 +33,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,9 +55,10 @@ fun priorityColor(priority: String): Color = when (priority) {
 
 /**
  * DashboardScreen — "My Tasks" home screen. Shows filter chips (All /
- * Pending / In Progress / Completed) with live counts, and a scrollable
- * list of tasks matching the selected filter. Tapping + opens the add-task
- * form; tapping a task card opens its details.
+ * Pending / In Progress / Completed) with live counts, a daily quote
+ * fetched from a public REST API, and a scrollable list of tasks matching
+ * the selected filter. Tapping + opens the add-task form; tapping a task
+ * card opens its details.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +68,11 @@ fun DashboardScreen(onAddTask: () -> Unit, onOpenTask: (String) -> Unit, onNavig
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
     // Which status filter chip is currently active
     var statusFilter by remember { mutableStateOf("All") }
+    // Daily quote pulled from a public REST API (see RestApiRepository)
+    var dailyQuote by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        RestApiRepository.fetchDailyQuote().onSuccess { dailyQuote = it }
+    }
 
     // Counts shown on each filter chip — recomputed on every recomposition
     // since `tasks` is a Compose state list (cheap for typical task-list sizes)
@@ -124,6 +131,13 @@ fun DashboardScreen(onAddTask: () -> Unit, onOpenTask: (String) -> Unit, onNavig
                 }
             }
             Spacer(Modifier.height(16.dp))
+
+            // Daily quote card — populated from RestApiRepository.fetchDailyQuote()
+            dailyQuote?.let { quote ->
+                ElevatedCard(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+                    Text(quote, modifier = Modifier.padding(12.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
 
             if (filtered.isEmpty()) {
                 // Empty state — shown for a fresh account or an empty filter result

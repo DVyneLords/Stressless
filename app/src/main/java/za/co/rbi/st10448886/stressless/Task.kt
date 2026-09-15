@@ -16,6 +16,7 @@ import androidx.core.app.NotificationCompat
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -38,14 +39,14 @@ data class Task(
     val id: String = UUID.randomUUID().toString(),
     val title: String = "",
     val description: String = "",
-    val dueDate: Long = 0L,              // epoch millis
-    val priority: String = "Medium",     // High / Medium / Low
-    val status: String = "Pending",      // Pending / In Progress / Completed
+    val dueDate: Long = 0L,
+    val priority: String = "Medium",
+    val status: String = "Pending",
     val category: String = "",
-    val reminder: String = "On time",    // On time / 30 mins before / 1 hour before / 1 day before / None
-    val subtasks: List<Subtask> = emptyList()
+    val reminder: String = "On time",
+    val subtasks: List<Subtask> = emptyList(),
+    val imageBase64: String = ""   // Compressed photo attached to this task, blob-stored inline in Firestore
 ) {
-    /** Percentage of subtasks that are marked done (0f..1f). */
     val subtaskProgress: Float
         get() = if (subtasks.isEmpty()) 0f else subtasks.count { it.done }.toFloat() / subtasks.size
 }
@@ -55,7 +56,7 @@ data class AppNotification(
     val title: String = "",
     val message: String = "",
     val timestamp: Long = System.currentTimeMillis(),
-    val type: String = "info",   // info / success / reminder / overdue
+    val type: String = "info",
     val read: Boolean = false
 )
 
@@ -152,8 +153,6 @@ object Strings {
         "about_developer" to "Ontwikkel deur Stack Masters",
         "about_description" to "Stressless is 'n studentetaaknaspeurder wat vir Suid-Afrikaanse tersiêre studente gebou is. Dit help jou om akademiese take te beplan, te prioritiseer en te voltooi met vanlyn ondersteuning, herinneringe en veeltalige ondersteuning."
     )
-    // NOTE: machine-drafted isiZulu — have a native speaker or your lecturer's
-    // language resource sanity-check these before final submission.
     private val zu = mapOf(
         "app_name" to "Stressless",
         "tagline" to "Hlela. Beka isibaluleko. Finyelela.",
@@ -213,11 +212,6 @@ object Strings {
 // ---------- Auth (Firebase) + local in-memory task store ----------
 
 object TaskRepository {
-    // Lazy + nullable: FirebaseAuth.getInstance() throws if no FirebaseApp
-    // is initialized, which is the case in plain JVM unit tests (no
-    // Android runtime, no google-services setup). Falling back to null
-    // lets TaskRepositoryTest run without crashing, while the real app
-    // (which does have Firebase initialized) behaves exactly as before.
     private val auth: FirebaseAuth? by lazy {
         try {
             FirebaseAuth.getInstance()
@@ -237,12 +231,6 @@ object TaskRepository {
     val dailySummaryEnabled = mutableStateOf(true)
     val isOnline = mutableStateOf(true)
 
-    // ---------- Offline persistence + pending-sync queue ----------
-    // Tasks are mirrored to SharedPreferences as JSON so they survive the
-    // app being killed while offline. pendingSync/pendingDeletes track which
-    // task IDs were changed offline and still need pushing to Firestore once
-    // we're back online, so reconnecting never silently overwrites unsynced
-    // local edits.
     private lateinit var prefs: android.content.SharedPreferences
     private var prefsReady = false
     private val pendingSync = mutableSetOf<String>()
@@ -253,7 +241,6 @@ object TaskRepository {
     private const val KEY_PENDING_SYNC = "pending_sync"
     private const val KEY_PENDING_DELETES = "pending_deletes"
 
-    /** Call once from MainActivity.onCreate before anything else touches tasks. */
     fun init(context: Context) {
         if (prefsReady) return
         prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -270,6 +257,7 @@ object TaskRepository {
         put("status", status)
         put("category", category)
         put("reminder", reminder)
+        put("imageBase64", imageBase64)   // NEW
         val subtasksArray = JSONArray()
         subtasks.forEach { st ->
             subtasksArray.put(JSONObject().apply {
@@ -294,6 +282,7 @@ object TaskRepository {
             status = optString("status", "Pending"),
             category = optString("category", ""),
             reminder = optString("reminder", "On time"),
+            imageBase64 = optString("imageBase64", ""),   // NEW
             subtasks = subtaskList
         )
     }
@@ -345,11 +334,6 @@ object TaskRepository {
             return user?.email?.substringBefore("@")?.replaceFirstChar { it.uppercase() } ?: "there"
         }
 
-    /**
-     * Registers a new user with Firebase Authentication.
-     * Firebase hashes (encrypts) the password server-side — the raw
-     * password is only sent once over HTTPS and is never stored as-is.
-     */
     suspend fun register(name: String, email: String, password: String): Result<Unit> {
         val firebaseAuth = auth ?: return Result.failure(Exception("Firebase Auth not available"))
         return try {
@@ -365,7 +349,6 @@ object TaskRepository {
         }
     }
 
-    /** Logs in an existing user via Firebase Auth. */
     suspend fun login(email: String, password: String): Result<Unit> {
         val firebaseAuth = auth ?: return Result.failure(Exception("Firebase Auth not available"))
         return try {
@@ -379,7 +362,6 @@ object TaskRepository {
         }
     }
 
-    /** Signs in using a Google ID token obtained from the Google Sign-In (SSO) flow. */
     suspend fun signInWithGoogleCredential(idToken: String): Result<Unit> {
         val firebaseAuth = auth ?: return Result.failure(Exception("Firebase Auth not available"))
         return try {
@@ -404,11 +386,6 @@ object TaskRepository {
         if (prefsReady) prefs.edit().clear().apply()
     }
 
-    /**
-     * Load all tasks from Firestore. Before pulling down, this FIRST pushes
-     * up anything changed or deleted while offline — otherwise reconnecting
-     * would overwrite unsynced local edits with stale cloud data.
-     */
     suspend fun loadTasksFromCloud() {
         if (!isOnline.value) {
             Log.d(TAG, "Skipping cloud load — offline")
@@ -440,7 +417,6 @@ object TaskRepository {
         }
     }
 
-    /** Adds a task locally, writes to Firestore (or queues it if offline), and notifies. */
     fun addTask(task: Task) {
         Log.d(TAG, "addTask: ${task.title}")
         tasks.add(0, task)
@@ -455,7 +431,6 @@ object TaskRepository {
         persistTasks()
     }
 
-    /** Updates an existing task and syncs to Firestore (or queues it if offline). */
     fun updateTask(updated: Task) {
         Log.d(TAG, "updateTask: ${updated.id} -> ${updated.status}")
         val index = tasks.indexOfFirst { it.id == updated.id }
@@ -475,7 +450,6 @@ object TaskRepository {
         }
     }
 
-    /** Deletes a task locally and from Firestore (or queues the delete if offline). */
     fun deleteTask(taskId: String) {
         Log.d(TAG, "deleteTask: $taskId")
         tasks.removeAll { it.id == taskId }
@@ -497,6 +471,28 @@ object TaskRepository {
         for (i in notifications.indices) {
             notifications[i] = notifications[i].copy(read = true)
         }
+    }
+
+    // ---------- Real-time push notifications (Firebase Cloud Messaging) ----------
+
+    /**
+     * Subscribes this device to the shared "task_reminders" FCM topic
+     * (so pushes sent from the Firebase Console reach every signed-in
+     * device without needing a custom backend) and saves the device's
+     * current FCM token to Firestore for optional targeted pushes later.
+     * Call this once after a successful login/register, and again at app
+     * startup if the user is already logged in (see MainActivity).
+     */
+    fun initPushNotifications() {
+        FirebaseMessaging.getInstance().subscribeToTopic("task_reminders")
+            .addOnSuccessListener { Log.d(TAG, "Subscribed to task_reminders topic") }
+            .addOnFailureListener { Log.e(TAG, "Topic subscription failed", it) }
+
+        FirebaseMessaging.getInstance().token
+            .addOnSuccessListener { token ->
+                scope.launch { FirestoreRepository.saveFcmToken(token) }
+            }
+            .addOnFailureListener { Log.e(TAG, "Fetching FCM token failed", it) }
     }
 }
 

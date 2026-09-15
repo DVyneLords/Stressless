@@ -97,7 +97,7 @@ fun AboutScreen(onBack: () -> Unit) {
             Text("• Statistics and completion rates")
             Text("• Push notifications and reminders")
             Text("• Cloud backup and sync")
-            Text("• Multi-language support (English, Afrikaans, Zulu, Xhosa, Sotho)")
+            Text("• Multi-language support (English, Afrikaans, isiZulu)")
             Text("• Dark mode")
 
             Spacer(Modifier.height(24.dp))

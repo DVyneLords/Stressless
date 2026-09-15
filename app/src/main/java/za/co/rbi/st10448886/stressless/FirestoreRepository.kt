@@ -7,10 +7,15 @@ import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 
 /**
- * FirestoreRepository — handles all cloud database operations for tasks.
+ * FirestoreRepository — handles all cloud database operations for tasks
+ * and device push-notification registration.
  *
  * Firestore structure:
- *   users/{uid}/tasks/{taskId}  -> Task document
+ *   users/{uid}/tasks/{taskId}  -> Task document (photos stored inline as
+ *                                  Base64 in imageBase64 — see ImageUtils —
+ *                                  since this project uses the free Spark
+ *                                  plan and doesn't have Firebase Storage)
+ *   users/{uid}                 -> user profile doc, holds "fcmToken"
  *
  * This class is the "API layer" of the app. Every task CRUD operation
  * goes through here, and is mirrored to the local TaskRepository
@@ -18,6 +23,7 @@ import kotlinx.coroutines.tasks.await
  *
  * References:
  *  - Firestore docs: https://firebase.google.com/docs/firestore
+ *  - FCM docs: https://firebase.google.com/docs/cloud-messaging
  */
 object FirestoreRepository {
 
@@ -61,6 +67,7 @@ object FirestoreRepository {
         "status" to status,
         "category" to category,
         "reminder" to reminder,
+        "imageBase64" to imageBase64, // NEW: compressed photo blob, stored inline (no paid Storage needed)
         "subtasks" to subtasks.map { mapOf("id" to it.id, "title" to it.title, "done" to it.done) },
         // Server-side-friendly timestamp for last write; useful for future
         // conflict resolution or "last synced" display.
@@ -78,6 +85,7 @@ object FirestoreRepository {
         status = this["status"] as? String ?: "Pending",
         category = this["category"] as? String ?: "",
         reminder = this["reminder"] as? String ?: "On time",
+        imageBase64 = this["imageBase64"] as? String ?: "", // NEW
         subtasks = (this["subtasks"] as? List<Map<String, Any?>>)?.mapNotNull { m ->
             val sid = m["id"] as? String ?: return@mapNotNull null
             Subtask(
@@ -124,6 +132,24 @@ object FirestoreRepository {
         Result.success(list)
     } catch (e: Exception) {
         Log.e(TAG, "loadTasks failed", e)
+        Result.failure(e)
+    }
+
+    /**
+     * Saves this device's current FCM token under the user's profile
+     * document (users/{uid}), using merge so it never overwrites other
+     * profile fields. Used for real-time push notifications — lets a token
+     * be targeted directly if you later send pushes from custom server code
+     * instead of the "task_reminders" topic broadcast.
+     */
+    suspend fun saveFcmToken(token: String): Result<Unit> = try {
+        val uid = auth?.currentUser?.uid ?: return Result.failure(Exception("Not logged in"))
+        db?.collection("users")?.document(uid)
+            ?.set(mapOf("fcmToken" to token), SetOptions.merge())?.await()
+        Log.d(TAG, "Saved FCM token for $uid")
+        Result.success(Unit)
+    } catch (e: Exception) {
+        Log.e(TAG, "saveFcmToken failed", e)
         Result.failure(e)
     }
 }

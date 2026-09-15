@@ -29,7 +29,8 @@ private const val TAG = "MainActivity"
 /**
  * MainActivity — single-activity entry point. Sets up the notification
  * channel, initializes local offline storage, tracks live connectivity via
- * ConnectivityManager, and hosts the full Compose navigation graph.
+ * ConnectivityManager, registers this device for real-time push
+ * notifications (FCM), and hosts the full Compose navigation graph.
  * An OfflineScreen overlay is shown on top of whatever screen is active
  * whenever the device loses its internet connection.
  */
@@ -51,6 +52,10 @@ class MainActivity : ComponentActivity() {
         // refresh from the cloud immediately (also flushes any pending offline changes).
         if (TaskRepository.isLoggedIn && TaskRepository.isOnline.value) {
             lifecycleScope.launch { TaskRepository.loadTasksFromCloud() }
+            // NEW: re-subscribe to the push notification topic on every cold
+            // start (not just first login) — the token can rotate between
+            // app launches, so this keeps it fresh in Firestore.
+            TaskRepository.initPushNotifications()
         }
         setContent {
             // Runtime notification permission is required from Android 13 (TIRAMISU) onward
@@ -143,6 +148,9 @@ private fun StresslessNavHost(navController: NavHostController) {
                 onLoginSuccess = {
                     // Pull tasks from Firestore on successful login
                     scope.launch { TaskRepository.loadTasksFromCloud() }
+                    // NEW: register this device for real-time push notifications
+                    // now that we know who's signed in
+                    TaskRepository.initPushNotifications()
                     // Clears onboarding/login/register from the back stack so the
                     // system back button doesn't return the user to the login screen
                     navController.navigate("dashboard") { popUpTo("onboarding") { inclusive = true } }
@@ -154,6 +162,9 @@ private fun StresslessNavHost(navController: NavHostController) {
         composable("register") {
             RegisterScreen(
                 onRegisterSuccess = {
+                    // NEW: same as login — subscribe this device to push
+                    // notifications right after account creation
+                    TaskRepository.initPushNotifications()
                     navController.navigate("dashboard") { popUpTo("onboarding") { inclusive = true } }
                 },
                 onGoToLogin = { navController.navigate("login") }

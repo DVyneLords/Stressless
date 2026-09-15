@@ -4,7 +4,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -110,17 +109,14 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onGoToRegister: () -> Unit) {
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth()
         )
-        Spacer(Modifier.height(4.dp))
-        TextButton(onClick = {}, modifier = Modifier.align(Alignment.End)) {
-            Text(Strings.tr("forgot_password", language))
-        }
 
         // Inline error message, shown only after a failed attempt
         error?.let {
-            Text(it, color = MaterialTheme.colorScheme.error)
             Spacer(Modifier.height(8.dp))
+            Text(it, color = MaterialTheme.colorScheme.error)
         }
 
+        Spacer(Modifier.height(16.dp))
         Button(
             onClick = {
                 error = null
@@ -144,18 +140,14 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onGoToRegister: () -> Unit) {
         Spacer(Modifier.height(16.dp))
         Text(Strings.tr("or_continue_with", language), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedButton(
-                onClick = {
-                    error = null
-                    googleLauncher.launch(googleSignInClient.signInIntent)
-                },
-                enabled = !loading,
-                modifier = Modifier.weight(1f)
-            ) { Text("Google") }
-            // Placeholder second option — reserved for a future sign-in method
-            OutlinedButton(onClick = {}, modifier = Modifier.weight(1f)) { Text(Strings.tr("email", language)) }
-        }
+        OutlinedButton(
+            onClick = {
+                error = null
+                googleLauncher.launch(googleSignInClient.signInIntent)
+            },
+            enabled = !loading,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Google") }
 
         Spacer(Modifier.height(20.dp))
         TextButton(onClick = onGoToRegister, modifier = Modifier.align(Alignment.CenterHorizontally)) {

@@ -5,18 +5,13 @@ plugins {
 }
 
 android {
-
     namespace = "za.co.rbi.st10448886.stressless"
-    compileSdk {
-        version = release(37) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "za.co.rbi.st10448886.stressless"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -25,22 +20,21 @@ android {
 
     buildTypes {
         release {
-            optimization {
-                enable = false
-            }
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     buildFeatures {
         compose = true
-    }
-    testOptions {
-        unitTests {
-            isReturnDefaultValues = true
-        }
     }
 }
 
@@ -48,11 +42,12 @@ dependencies {
     // ---------- Firebase ----------
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-firestore-ktx")           // NEW: Cloud database
-    implementation("com.google.firebase:firebase-analytics-ktx")          // NEW: Optional analytics
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-analytics-ktx")
+    implementation("com.google.firebase:firebase-messaging-ktx")
 
     // ---------- Google Sign-In (SSO) ----------
-    implementation("com.google.android.gms:play-services-auth:21.2.0")         // NEW: Optional analytics
+    implementation("com.google.android.gms:play-services-auth:21.2.0")
 
     // ---------- Coroutines for Firebase Tasks ----------
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
@@ -62,6 +57,10 @@ dependencies {
 
     // ---------- Icons ----------
     implementation("androidx.compose.material:material-icons-extended")
+
+    // NOTE: coil-compose removed — not needed. Task photos are stored as
+    // Base64 in Firestore and decoded straight to a Bitmap, displayed via
+    // a plain Image(bitmap = ...asImageBitmap()) composable.
 
     // ---------- Compose BOM ----------
     implementation(platform(libs.androidx.compose.bom))

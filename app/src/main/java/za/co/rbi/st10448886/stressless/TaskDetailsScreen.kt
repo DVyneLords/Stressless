@@ -1,5 +1,6 @@
 package za.co.rbi.st10448886.stressless
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
@@ -35,15 +37,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 /**
- * TaskDetailsScreen — full view of a single task: status, description,
- * due date, priority, category, subtask progress bar, an editable subtask
- * checklist, and quick actions to edit, delete, or mark the task complete.
+ * TaskDetailsScreen — full view of a single task: photo (if attached),
+ * status, description, due date, priority, category, subtask progress bar,
+ * an editable subtask checklist, and quick actions to edit, delete, or mark
+ * the task complete.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,6 +65,11 @@ fun TaskDetailsScreen(taskId: String, onBack: () -> Unit, onEdit: () -> Unit) {
     }
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
     var newSubtask by remember { mutableStateOf("") }
+
+    // NEW: decode the stored Base64 photo (if any) once per composition of this task
+    val photoBitmap = remember(task.imageBase64) {
+        task.imageBase64.takeIf { it.isNotBlank() }?.let { ImageUtils.base64ToBitmap(it) }
+    }
 
     Scaffold(
         topBar = {
@@ -78,6 +89,20 @@ fun TaskDetailsScreen(taskId: String, onBack: () -> Unit, onEdit: () -> Unit) {
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).padding(16.dp)) {
+            // NEW: photo banner, only shown when the task has one attached
+            if (photoBitmap != null) {
+                Image(
+                    bitmap = photoBitmap.asImageBitmap(),
+                    contentDescription = "Task photo",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+
             AssistChip(onClick = {}, label = { Text(task.status) })
             Spacer(Modifier.height(12.dp))
             if (task.description.isNotBlank()) {
@@ -103,16 +128,12 @@ fun TaskDetailsScreen(taskId: String, onBack: () -> Unit, onEdit: () -> Unit) {
             }
 
             Text(Strings.tr("subtasks", language), style = MaterialTheme.typography.titleMedium)
-            // weight(1f, fill = false) — list only grows to fit its content,
-            // leaving space below for the "add subtask" row and action buttons
             LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
                 items(task.subtasks, key = { it.id }) { sub ->
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Checkbox(
                             checked = sub.done,
                             onCheckedChange = { checked ->
-                                // Rebuild the subtasks list with this one toggled,
-                                // then persist the whole task (subtasks are stored as a list, not individually)
                                 val updated = task.subtasks.map { if (it.id == sub.id) it.copy(done = checked) else it }
                                 TaskRepository.updateTask(task.copy(subtasks = updated))
                             }
@@ -121,7 +142,6 @@ fun TaskDetailsScreen(taskId: String, onBack: () -> Unit, onEdit: () -> Unit) {
                     }
                 }
             }
-            // Inline "add subtask" row
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 OutlinedTextField(
                     value = newSubtask, onValueChange = { newSubtask = it },

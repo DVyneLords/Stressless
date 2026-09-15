@@ -21,6 +21,20 @@
             android:name=".ReminderReceiver"
             android:exported="false" />
 
+        <!-- NEW: receives Firebase Cloud Messaging pushes for real-time notifications -->
+        <service
+            android:name=".StresslessMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
+        <!-- NEW: default channel FCM uses for notification-only pushes -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="stressless_reminders" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

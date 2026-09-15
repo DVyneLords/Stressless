@@ -85,10 +85,7 @@ fun SettingsScreen(onLogout: () -> Unit, onNavigate: (String) -> Unit) {
             Spacer(Modifier.height(16.dp))
             Text(Strings.tr("other", language), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
-            // Backup/export are placeholders — no handlers wired up yet
-            TextButton(onClick = {}) { Text(Strings.tr("backup_sync", language)) }
-            TextButton(onClick = {}) { Text(Strings.tr("export_data", language)) }
-            // "About" now navigates to the About screen
+            // "About" navigates to the About screen
             TextButton(onClick = { onNavigate("about") }) { Text(Strings.tr("about", language)) }
 
             Spacer(Modifier.height(24.dp))
