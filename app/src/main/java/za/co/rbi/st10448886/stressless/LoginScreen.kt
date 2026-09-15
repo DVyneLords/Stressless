@@ -40,17 +40,26 @@ import kotlinx.coroutines.launch
 private const val GOOGLE_WEB_CLIENT_ID =
     "225144372421-ejhmc2olsu45r312h57iuu885it1nrlr.apps.googleusercontent.com"
 
+/**
+ * LoginScreen — email/password sign-in plus Google Sign-In (SSO).
+ * On success, TaskRepository.login()/signInWithGoogleCredential() authenticate
+ * against Firebase Auth; the caller (MainActivity's nav host) then pulls the
+ * user's tasks from Firestore and navigates to the dashboard.
+ */
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit, onGoToRegister: () -> Unit) {
     val language = TaskRepository.language.value
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    // Holds the last error message shown to the user (null = no error)
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
     // ---------- Google Sign-In (SSO) setup ----------
+    // Built once per composition; requests an ID token (for Firebase auth)
+    // and the user's email.
     val googleSignInClient = remember {
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(GOOGLE_WEB_CLIENT_ID)
@@ -59,6 +68,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onGoToRegister: () -> Unit) {
         GoogleSignIn.getClient(context, gso)
     }
 
+    // Handles the result of the Google account picker activity
     val googleLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { activityResult ->
@@ -67,6 +77,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onGoToRegister: () -> Unit) {
             val account = task.getResult(ApiException::class.java)
             val idToken = account.idToken
             if (idToken != null) {
+                // Exchange the Google ID token for a Firebase session
                 loading = true
                 scope.launch {
                     val result = TaskRepository.signInWithGoogleCredential(idToken)
@@ -95,6 +106,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onGoToRegister: () -> Unit) {
         OutlinedTextField(
             value = password, onValueChange = { password = it },
             label = { Text(Strings.tr("password", language)) },
+            // Masks the password as dots — never shown in plain text on screen
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth()
         )
@@ -103,6 +115,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onGoToRegister: () -> Unit) {
             Text(Strings.tr("forgot_password", language))
         }
 
+        // Inline error message, shown only after a failed attempt
         error?.let {
             Text(it, color = MaterialTheme.colorScheme.error)
             Spacer(Modifier.height(8.dp))
@@ -113,11 +126,15 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onGoToRegister: () -> Unit) {
                 error = null
                 loading = true
                 scope.launch {
+                    // Delegates to Firebase Auth via TaskRepository; the raw
+                    // password is sent once over HTTPS and never stored locally.
                     val result = TaskRepository.login(email.trim(), password)
                     loading = false
                     result.onSuccess { onLoginSuccess() }.onFailure { error = it.message }
                 }
             },
+            // Disabled while a request is in flight or fields are empty,
+            // to prevent duplicate submissions / crashes on blank input.
             enabled = !loading && email.isNotBlank() && password.isNotBlank(),
             modifier = Modifier.fillMaxWidth().height(50.dp)
         ) {
@@ -136,6 +153,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, onGoToRegister: () -> Unit) {
                 enabled = !loading,
                 modifier = Modifier.weight(1f)
             ) { Text("Google") }
+            // Placeholder second option — reserved for a future sign-in method
             OutlinedButton(onClick = {}, modifier = Modifier.weight(1f)) { Text(Strings.tr("email", language)) }
         }
 

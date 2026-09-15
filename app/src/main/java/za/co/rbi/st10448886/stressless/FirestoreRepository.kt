@@ -44,6 +44,8 @@ object FirestoreRepository {
             null
         }
 
+    // The signed-in user's task subcollection, or null if not logged in /
+    // Firebase unavailable. Every read/write below goes through this.
     private val tasksCollection
         get() = auth?.currentUser?.uid?.let { uid ->
             db?.collection("users")?.document(uid)?.collection("tasks")
@@ -60,9 +62,12 @@ object FirestoreRepository {
         "category" to category,
         "reminder" to reminder,
         "subtasks" to subtasks.map { mapOf("id" to it.id, "title" to it.title, "done" to it.done) },
+        // Server-side-friendly timestamp for last write; useful for future
+        // conflict resolution or "last synced" display.
         "updatedAt" to System.currentTimeMillis()
     )
 
+    /** Rebuild a Task from a raw Firestore document map, with safe defaults for any missing field. */
     @Suppress("UNCHECKED_CAST")
     private fun Map<String, Any?>.toTask(): Task = Task(
         id = this["id"] as? String ?: "",
@@ -83,7 +88,11 @@ object FirestoreRepository {
         } ?: emptyList()
     )
 
-    /** Create or update a task in Firestore. */
+    /**
+     * Create or update a task in Firestore.
+     * Uses SetOptions.merge() so partial writes never wipe out fields
+     * that aren't included in this particular update.
+     */
     suspend fun saveTask(task: Task): Result<Unit> = try {
         val col = tasksCollection ?: return Result.failure(Exception("Not logged in"))
         col.document(task.id).set(task.toMap(), SetOptions.merge()).await()
@@ -105,8 +114,9 @@ object FirestoreRepository {
         Result.failure(e)
     }
 
-    /** Fetch all tasks for the current user. */
+    /** Fetch all tasks for the current user (used on login and reconnect). */
     suspend fun loadTasks(): Result<List<Task>> = try {
+        // Not logged in -> treat as "no tasks" rather than an error
         val col = tasksCollection ?: return Result.success(emptyList())
         val snapshot = col.get().await()
         val list = snapshot.documents.mapNotNull { it.data?.toTask() }

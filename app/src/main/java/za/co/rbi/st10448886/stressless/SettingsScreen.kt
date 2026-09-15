@@ -25,6 +25,10 @@ import androidx.compose.ui.unit.dp
 /**
  * Settings screen — allows the user to change language, dark mode,
  * notification preferences, and log out.
+ *
+ * All toggles here write directly into TaskRepository's mutableState
+ * properties, so changes apply instantly across the whole app (e.g.
+ * switching language immediately re-renders every Strings.tr() call).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,6 +43,7 @@ fun SettingsScreen(onLogout: () -> Unit, onNavigate: (String) -> Unit) {
             Text(Strings.tr("preferences", language), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
 
+            // Language picker — three supported languages as filter chips
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 Text(Strings.tr("language", language), modifier = Modifier.weight(1f))
                 Row {
@@ -53,6 +58,7 @@ fun SettingsScreen(onLogout: () -> Unit, onNavigate: (String) -> Unit) {
                 }
             }
 
+            // Dark mode toggle — read by StresslessTheme in MainActivity
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 Text(Strings.tr("dark_mode", language), modifier = Modifier.weight(1f))
                 Switch(checked = TaskRepository.darkMode.value, onCheckedChange = { TaskRepository.darkMode.value = it })
@@ -62,6 +68,7 @@ fun SettingsScreen(onLogout: () -> Unit, onNavigate: (String) -> Unit) {
             Text(Strings.tr("notifications", language), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
 
+            // Master switch — checked by TaskFormScreen before scheduling any reminder
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 Text(Strings.tr("push_notifications", language), modifier = Modifier.weight(1f))
                 Switch(checked = TaskRepository.notificationsEnabled.value, onCheckedChange = { TaskRepository.notificationsEnabled.value = it })
@@ -78,12 +85,15 @@ fun SettingsScreen(onLogout: () -> Unit, onNavigate: (String) -> Unit) {
             Spacer(Modifier.height(16.dp))
             Text(Strings.tr("other", language), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(8.dp))
+            // Backup/export are placeholders — no handlers wired up yet
             TextButton(onClick = {}) { Text(Strings.tr("backup_sync", language)) }
             TextButton(onClick = {}) { Text(Strings.tr("export_data", language)) }
             // "About" now navigates to the About screen
             TextButton(onClick = { onNavigate("about") }) { Text(Strings.tr("about", language)) }
 
             Spacer(Modifier.height(24.dp))
+            // Signs out of Firebase, clears local state, and returns to onboarding
+            // with the entire back stack wiped (handled in MainActivity's nav host)
             OutlinedButton(onClick = onLogout, modifier = Modifier.fillMaxWidth()) {
                 Text(Strings.tr("logout", language))
             }

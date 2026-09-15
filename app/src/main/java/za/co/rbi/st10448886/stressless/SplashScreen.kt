@@ -21,8 +21,14 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
+/**
+ * SplashScreen — brief branded loading screen shown on app start.
+ * After a fixed delay, MainActivity's nav host routes to either the
+ * dashboard (already logged in) or onboarding (first run / logged out).
+ */
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
+    // Fires once when this composable first enters composition
     LaunchedEffect(Unit) {
         delay(1500.milliseconds)
         onFinished()

@@ -40,11 +40,19 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * TaskDetailsScreen — full view of a single task: status, description,
+ * due date, priority, category, subtask progress bar, an editable subtask
+ * checklist, and quick actions to edit, delete, or mark the task complete.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskDetailsScreen(taskId: String, onBack: () -> Unit, onEdit: () -> Unit) {
     val language = TaskRepository.language.value
     val task = TaskRepository.tasks.find { it.id == taskId }
+    // Defensive guard: if the task was deleted elsewhere (or a stale ID was
+    // passed) while this screen is being composed, back out safely rather
+    // than crash on a null task below.
     if (task == null) {
         onBack()
         return
@@ -60,6 +68,8 @@ fun TaskDetailsScreen(taskId: String, onBack: () -> Unit, onEdit: () -> Unit) {
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null) }
                 },
                 actions = {
+                    // Delete from the details screen: removes the task, then
+                    // navigates back since there's nothing left to display
                     IconButton(onClick = { TaskRepository.deleteTask(task.id); onBack() }) {
                         Icon(Icons.Default.Delete, contentDescription = "Delete")
                     }
@@ -85,6 +95,7 @@ fun TaskDetailsScreen(taskId: String, onBack: () -> Unit, onEdit: () -> Unit) {
             }
             Spacer(Modifier.height(16.dp))
 
+            // Progress bar only shown once there's at least one subtask to track
             if (task.subtasks.isNotEmpty()) {
                 Text(Strings.tr("progress", language) + ": ${(task.subtaskProgress * 100).toInt()}%")
                 LinearProgressIndicator(progress = { task.subtaskProgress }, modifier = Modifier.fillMaxWidth())
@@ -92,12 +103,16 @@ fun TaskDetailsScreen(taskId: String, onBack: () -> Unit, onEdit: () -> Unit) {
             }
 
             Text(Strings.tr("subtasks", language), style = MaterialTheme.typography.titleMedium)
+            // weight(1f, fill = false) — list only grows to fit its content,
+            // leaving space below for the "add subtask" row and action buttons
             LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
                 items(task.subtasks, key = { it.id }) { sub ->
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         Checkbox(
                             checked = sub.done,
                             onCheckedChange = { checked ->
+                                // Rebuild the subtasks list with this one toggled,
+                                // then persist the whole task (subtasks are stored as a list, not individually)
                                 val updated = task.subtasks.map { if (it.id == sub.id) it.copy(done = checked) else it }
                                 TaskRepository.updateTask(task.copy(subtasks = updated))
                             }
@@ -106,6 +121,7 @@ fun TaskDetailsScreen(taskId: String, onBack: () -> Unit, onEdit: () -> Unit) {
                     }
                 }
             }
+            // Inline "add subtask" row
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 OutlinedTextField(
                     value = newSubtask, onValueChange = { newSubtask = it },

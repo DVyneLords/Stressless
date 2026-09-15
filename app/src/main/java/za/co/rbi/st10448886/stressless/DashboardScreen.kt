@@ -45,20 +45,30 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/** Maps a task's priority label to the small colour dot shown on its card. */
 fun priorityColor(priority: String): Color = when (priority) {
     "High" -> Color(0xFFE57373)
     "Low" -> Color(0xFF81C784)
-    else -> Color(0xFFFFD54F)
+    else -> Color(0xFFFFD54F) // Medium (default)
 }
 
+/**
+ * DashboardScreen — "My Tasks" home screen. Shows filter chips (All /
+ * Pending / In Progress / Completed) with live counts, and a scrollable
+ * list of tasks matching the selected filter. Tapping + opens the add-task
+ * form; tapping a task card opens its details.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(onAddTask: () -> Unit, onOpenTask: (String) -> Unit, onNavigate: (String) -> Unit) {
     val language = TaskRepository.language.value
     val tasks = TaskRepository.tasks
     val dateFormat = remember { SimpleDateFormat("dd MMM yyyy", Locale.getDefault()) }
+    // Which status filter chip is currently active
     var statusFilter by remember { mutableStateOf("All") }
 
+    // Counts shown on each filter chip — recomputed on every recomposition
+    // since `tasks` is a Compose state list (cheap for typical task-list sizes)
     val pending = tasks.count { it.status == "Pending" }
     val inProgress = tasks.count { it.status == "In Progress" }
     val completed = tasks.count { it.status == "Completed" }
@@ -81,6 +91,7 @@ fun DashboardScreen(onAddTask: () -> Unit, onOpenTask: (String) -> Unit, onNavig
                     }
                 },
                 actions = {
+                    // Notification bell with an unread-count badge
                     BadgedBox(badge = { if (unreadCount > 0) Badge { Text(unreadCount.toString()) } }) {
                         IconButton(onClick = { onNavigate("notifications") }) {
                             Icon(Icons.Default.Notifications, contentDescription = Strings.tr("notifications", language))
@@ -95,6 +106,7 @@ fun DashboardScreen(onAddTask: () -> Unit, onOpenTask: (String) -> Unit, onNavig
         bottomBar = { StresslessBottomBar(current = "dashboard", onNavigate = onNavigate) }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).padding(16.dp)) {
+            // Status filter chips, each labelled with its live count
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(
                     "All" to tasks.size,
@@ -105,6 +117,8 @@ fun DashboardScreen(onAddTask: () -> Unit, onOpenTask: (String) -> Unit, onNavig
                     FilterChip(
                         selected = statusFilter == label,
                         onClick = { statusFilter = label },
+                        // Translate the filter label via its string-map key
+                        // (spaces -> underscores, lowercased, e.g. "In Progress" -> "in_progress")
                         label = { Text("${Strings.tr(label.lowercase().replace(" ", "_"), language)} $count") }
                     )
                 }
@@ -112,6 +126,7 @@ fun DashboardScreen(onAddTask: () -> Unit, onOpenTask: (String) -> Unit, onNavig
             Spacer(Modifier.height(16.dp))
 
             if (filtered.isEmpty()) {
+                // Empty state — shown for a fresh account or an empty filter result
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("No tasks yet — tap + to add one", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -126,6 +141,11 @@ fun DashboardScreen(onAddTask: () -> Unit, onOpenTask: (String) -> Unit, onNavig
     }
 }
 
+/**
+ * TaskCard — reusable row used on Dashboard and Calendar screens.
+ * Shows a completion checkbox, priority dot, title/description/due date,
+ * and a delete action. Tapping the card body opens task details.
+ */
 @Composable
 fun TaskCard(task: Task, dateFormat: SimpleDateFormat, onOpenTask: (String) -> Unit) {
     ElevatedCard(
@@ -136,6 +156,8 @@ fun TaskCard(task: Task, dateFormat: SimpleDateFormat, onOpenTask: (String) -> U
             modifier = Modifier.padding(12.dp).fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Quick-complete checkbox — toggling writes straight through
+            // TaskRepository.updateTask (which also syncs to Firestore)
             Checkbox(
                 checked = task.status == "Completed",
                 onCheckedChange = { checked ->
@@ -153,6 +175,7 @@ fun TaskCard(task: Task, dateFormat: SimpleDateFormat, onOpenTask: (String) -> U
                     Text(dateFormat.format(Date(task.dueDate)), style = MaterialTheme.typography.labelSmall)
                 }
             }
+            // Delete button — removes locally and from Firestore (or queues offline delete)
             IconButton(onClick = { TaskRepository.deleteTask(task.id) }) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete")
             }

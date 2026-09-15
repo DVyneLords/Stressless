@@ -50,17 +50,21 @@ fun StatisticsScreen(onNavigate: (String) -> Unit) {
     val completed = tasks.count { it.status == "Completed" }
     val inProgress = tasks.count { it.status == "In Progress" }
     val pending = tasks.count { it.status == "Pending" }
+    // Guard against divide-by-zero when the task list is empty
     val rate = if (total > 0) completed.toFloat() / total else 0f
 
     val high = tasks.count { it.priority == "High" }
     val medium = tasks.count { it.priority == "Medium" }
     val low = tasks.count { it.priority == "Low" }
+    // At least 1 to avoid a divide-by-zero when computing bar widths below
     val maxPriority = maxOf(high, medium, low, 1)
 
-    // Use theme colours so dark mode works correctly
+    // Use theme colours (not hard-coded) so the donut chart renders
+    // correctly in both light and dark mode
     val primaryColor = MaterialTheme.colorScheme.primary
     val trackColor = MaterialTheme.colorScheme.surfaceVariant
 
+    // Demonstrates logging of computed values for debugging/marking purposes
     Log.d(TAG, "Stats: total=$total completed=$completed inProgress=$inProgress pending=$pending rate=$rate")
 
     Scaffold(
@@ -94,7 +98,8 @@ fun StatisticsScreen(onNavigate: (String) -> Unit) {
                 Canvas(modifier = Modifier.size(140.dp)) {
                     val stroke = 14.dp.toPx()
 
-                    // Background track
+                    // Background track — full circle, drawn first so the
+                    // progress arc renders on top of it
                     drawArc(
                         color = trackColor,
                         startAngle = -90f,
@@ -105,7 +110,8 @@ fun StatisticsScreen(onNavigate: (String) -> Unit) {
                         topLeft = Offset(stroke / 2, stroke / 2)
                     )
 
-                    // Foreground progress arc (uses theme primary — works in light AND dark mode)
+                    // Foreground progress arc — sweep angle scales with the
+                    // completion rate (0% = no arc, 100% = full circle)
                     drawArc(
                         color = primaryColor,
                         startAngle = -90f,
@@ -141,6 +147,7 @@ fun StatisticsScreen(onNavigate: (String) -> Unit) {
     }
 }
 
+/** Small rounded box showing a single stat label + value (e.g. "Total Tasks" / "12"). */
 @Composable
 private fun StatBox(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
@@ -157,6 +164,7 @@ private fun StatBox(label: String, value: String, modifier: Modifier = Modifier)
     }
 }
 
+/** Horizontal bar representing [count] out of [max] for a given priority [label]. */
 @Composable
 private fun PriorityBar(label: String, count: Int, max: Int, color: Color) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -167,6 +175,7 @@ private fun PriorityBar(label: String, count: Int, max: Int, color: Color) {
                 .height(14.dp)
                 .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(7.dp))
         ) {
+            // Filled portion — width fraction is count/max, guarding against max=0
             Box(
                 modifier = Modifier
                     .fillMaxWidth(if (max > 0) count.toFloat() / max else 0f)

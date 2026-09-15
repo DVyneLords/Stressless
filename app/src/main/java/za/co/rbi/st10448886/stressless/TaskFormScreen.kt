@@ -42,6 +42,11 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
+/**
+ * TaskFormScreen — single screen used for both creating a new task
+ * (taskId == "new") and editing an existing one (taskId matches a real
+ * task's id). Pre-fills fields from the existing task when editing.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TaskFormScreen(taskId: String, onDone: () -> Unit) {
@@ -49,8 +54,10 @@ fun TaskFormScreen(taskId: String, onDone: () -> Unit) {
     val language = TaskRepository.language.value
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
     val isNew = taskId == "new"
+    // Look up the task being edited (null when creating a new one)
     val existing = if (!isNew) TaskRepository.tasks.find { it.id == taskId } else null
 
+    // Form field state, pre-filled from `existing` when editing
     var title by remember { mutableStateOf(existing?.title ?: "") }
     var description by remember { mutableStateOf(existing?.description ?: "") }
     var dueDateText by remember {
@@ -62,16 +69,22 @@ fun TaskFormScreen(taskId: String, onDone: () -> Unit) {
     var reminder by remember { mutableStateOf(existing?.reminder ?: "On time") }
     var reminderMenuOpen by remember { mutableStateOf(false) }
 
+    /** Builds a Task from current form state and saves it (create or update), then schedules a reminder if applicable. */
     fun save() {
+        // Parse the typed date string; falls back to 0 (no due date) on any bad input
+        // rather than crashing the form on an invalid/incomplete date.
         val millis = try { dateFormat.parse(dueDateText)?.time ?: 0L } catch (_: Exception) { 0L }
         val task = Task(
             id = existing?.id ?: UUID.randomUUID().toString(),
             title = title, description = description,
             dueDate = millis, priority = priority, category = category,
             status = status, reminder = reminder,
+            // Preserve existing subtasks — this form doesn't edit them directly (TaskDetailsScreen does)
             subtasks = existing?.subtasks ?: emptyList()
         )
         if (isNew) TaskRepository.addTask(task) else TaskRepository.updateTask(task)
+        // Only schedule a reminder if there's a valid due date AND the user
+        // hasn't globally disabled notifications in Settings
         if (millis > 0 && TaskRepository.notificationsEnabled.value) {
             NotificationHelper.scheduleReminder(context, task)
         }
@@ -83,6 +96,7 @@ fun TaskFormScreen(taskId: String, onDone: () -> Unit) {
             TopAppBar(
                 title = { Text(if (isNew) Strings.tr("add_task", language) else Strings.tr("edit_task", language)) },
                 actions = {
+                    // Save is disabled until a title is provided — the only required field
                     TextButton(onClick = { save() }, enabled = title.isNotBlank()) {
                         Text(Strings.tr("save", language))
                     }
@@ -94,6 +108,7 @@ fun TaskFormScreen(taskId: String, onDone: () -> Unit) {
             modifier = Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Decorative icon at the top of the form
             Box(
                 modifier = Modifier.size(56.dp).background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
                 contentAlignment = Alignment.Center
@@ -106,6 +121,8 @@ fun TaskFormScreen(taskId: String, onDone: () -> Unit) {
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text(Strings.tr("description", language)) }, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp))
+            // Free-text date field (expects yyyy-MM-dd) — kept simple rather than
+            // wiring up a full date picker dialog
             OutlinedTextField(value = dueDateText, onValueChange = { dueDateText = it }, label = { Text(Strings.tr("due_date", language)) }, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text(Strings.tr("category", language)) }, modifier = Modifier.fillMaxWidth())
@@ -119,6 +136,7 @@ fun TaskFormScreen(taskId: String, onDone: () -> Unit) {
             }
             Spacer(Modifier.height(12.dp))
 
+            // Status chips only shown when editing — a brand-new task always starts as "Pending"
             if (!isNew) {
                 Text(Strings.tr("status", language), modifier = Modifier.fillMaxWidth())
                 Row(modifier = Modifier.fillMaxWidth()) {
@@ -129,6 +147,7 @@ fun TaskFormScreen(taskId: String, onDone: () -> Unit) {
                 Spacer(Modifier.height(12.dp))
             }
 
+            // Reminder lead-time dropdown (read-only text field + menu, standard Material3 pattern)
             ExposedDropdownMenuBox(expanded = reminderMenuOpen, onExpandedChange = { reminderMenuOpen = it }) {
                 OutlinedTextField(
                     value = reminder, onValueChange = {}, readOnly = true,

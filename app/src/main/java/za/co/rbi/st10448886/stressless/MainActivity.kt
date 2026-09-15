@@ -26,27 +26,42 @@ import za.co.rbi.st10448886.stressless.ui.theme.StresslessTheme
 
 private const val TAG = "MainActivity"
 
+/**
+ * MainActivity — single-activity entry point. Sets up the notification
+ * channel, initializes local offline storage, tracks live connectivity via
+ * ConnectivityManager, and hosts the full Compose navigation graph.
+ * An OfflineScreen overlay is shown on top of whatever screen is active
+ * whenever the device loses its internet connection.
+ */
 class MainActivity : ComponentActivity() {
     private lateinit var connectivityManager: ConnectivityManager
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Required once, before any reminder notification can be shown (Android 8+)
         NotificationHelper.createChannel(this)
         connectivityManager = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        // Loads any locally cached tasks/pending-sync state from SharedPreferences
         TaskRepository.init(applicationContext)
         TaskRepository.isOnline.value = isCurrentlyOnline()
         Log.i(TAG, "App started. Online=${TaskRepository.isOnline.value}")
 
+        // If we're already logged in and have a connection at startup,
+        // refresh from the cloud immediately (also flushes any pending offline changes).
         if (TaskRepository.isLoggedIn && TaskRepository.isOnline.value) {
             lifecycleScope.launch { TaskRepository.loadTasksFromCloud() }
         }
         setContent {
+            // Runtime notification permission is required from Android 13 (TIRAMISU) onward
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
                 LaunchedEffect(Unit) { launcher.launch(Manifest.permission.POST_NOTIFICATIONS) }
             }
 
+            // Registers a live network callback for the lifetime of this composition,
+            // so isOnline updates immediately when connectivity changes (rather than
+            // only being checked once at app start).
             DisposableEffect(Unit) {
                 val callback = object : ConnectivityManager.NetworkCallback() {
                     override fun onAvailable(network: Network) {
@@ -65,6 +80,7 @@ class MainActivity : ComponentActivity() {
                 }
                 networkCallback = callback
                 connectivityManager.registerNetworkCallback(NetworkRequest.Builder().build(), callback)
+                // Unregister when this composable leaves composition, to avoid leaking the callback
                 onDispose {
                     networkCallback?.let { connectivityManager.unregisterNetworkCallback(it) }
                 }
@@ -76,6 +92,8 @@ class MainActivity : ComponentActivity() {
 
                 Box {
                     StresslessNavHost(navController)
+                    // Overlay shown on top of the current screen whenever offline —
+                    // does not replace navigation, so the underlying screen state is preserved.
                     if (!isOnline) {
                         OfflineScreen(
                             onGoToTasks = { navController.navigate("dashboard") { launchSingleTop = true } },
@@ -87,6 +105,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Checks the OS-reported connectivity state directly (used for manual "Retry" and initial checks). */
     private fun isCurrentlyOnline(): Boolean {
         val network = connectivityManager.activeNetwork ?: return false
         val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
@@ -94,6 +113,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/**
+ * StresslessNavHost — declares every screen route and the navigation
+ * transitions between them. This is the single source of truth for app flow:
+ * splash -> onboarding -> (login|register) -> dashboard -> (calendar|stats|settings|...).
+ */
 @Composable
 private fun StresslessNavHost(navController: NavHostController) {
     val scope = androidx.compose.runtime.rememberCoroutineScope()
@@ -101,6 +125,7 @@ private fun StresslessNavHost(navController: NavHostController) {
     NavHost(navController = navController, startDestination = "splash") {
         composable("splash") {
             SplashScreen(onFinished = {
+                // Skip onboarding entirely if a session is already active
                 val next = if (TaskRepository.isLoggedIn) "dashboard" else "onboarding"
                 navController.navigate(next) { popUpTo("splash") { inclusive = true } }
             })
@@ -118,6 +143,8 @@ private fun StresslessNavHost(navController: NavHostController) {
                 onLoginSuccess = {
                     // Pull tasks from Firestore on successful login
                     scope.launch { TaskRepository.loadTasksFromCloud() }
+                    // Clears onboarding/login/register from the back stack so the
+                    // system back button doesn't return the user to the login screen
                     navController.navigate("dashboard") { popUpTo("onboarding") { inclusive = true } }
                 },
                 onGoToRegister = { navController.navigate("register") }
@@ -141,6 +168,8 @@ private fun StresslessNavHost(navController: NavHostController) {
             )
         }
 
+        // "new" as the taskId signals TaskFormScreen to create a new task;
+        // any other value means editing an existing one.
         composable("form/{taskId}") { backStackEntry ->
             val taskId = backStackEntry.arguments?.getString("taskId") ?: "new"
             TaskFormScreen(
@@ -175,6 +204,8 @@ private fun StresslessNavHost(navController: NavHostController) {
             SettingsScreen(
                 onLogout = {
                     TaskRepository.logout()
+                    // popUpTo(0) clears the ENTIRE back stack — after logging out,
+                    // the user should never be able to navigate "back" into the app
                     navController.navigate("onboarding") { popUpTo(0) }
                 },
                 onNavigate = { route -> navController.navigate(route) { launchSingleTop = true } }

@@ -35,6 +35,11 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
+/**
+ * NotificationsScreen — lists in-app notifications (task added/completed,
+ * reminders, etc.) grouped into "Today" and "Earlier" sections, with a
+ * "mark all as read" action.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationsScreen(onBack: () -> Unit) {
@@ -43,6 +48,7 @@ fun NotificationsScreen(onBack: () -> Unit) {
     val timeFormat = remember { SimpleDateFormat("hh:mm a", Locale.getDefault()) }
     val today = remember { Calendar.getInstance() }
 
+    /** True if the given timestamp falls on today's calendar date. */
     fun isToday(ts: Long): Boolean {
         val c = Calendar.getInstance().apply { timeInMillis = ts }
         return c.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR) && c.get(Calendar.YEAR) == today.get(Calendar.YEAR)
@@ -65,12 +71,16 @@ fun NotificationsScreen(onBack: () -> Unit) {
                     Text("No notifications yet", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             } else {
+                // weight(1f, fill = false) lets the list take only the space it needs,
+                // leaving room for the "mark all read" button below without overlapping it
                 LazyColumn(modifier = Modifier.weight(1f, fill = false)) {
                     if (todayList.isNotEmpty()) {
                         item { Text(Strings.tr("today", language), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 8.dp)) }
                         items(todayList, key = { it.id }) { NotificationRow(it, timeFormat) }
                     }
                     if (earlierList.isNotEmpty()) {
+                        // Note: section is always labelled "yesterday" even for older items —
+                        // acceptable simplification since the app doesn't retain long history.
                         item { Text(Strings.tr("yesterday", language), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 8.dp)) }
                         items(earlierList, key = { it.id }) { NotificationRow(it, timeFormat) }
                     }
@@ -83,8 +93,10 @@ fun NotificationsScreen(onBack: () -> Unit) {
     }
 }
 
+/** Single notification row with a type-specific icon/colour, title, message, and time. */
 @Composable
 private fun NotificationRow(notification: AppNotification, timeFormat: SimpleDateFormat) {
+    // Icon + colour depend on notification type (success/overdue/reminder/info)
     val (icon, color) = when (notification.type) {
         "success" -> Icons.Default.CheckCircle to Color(0xFF4CAF50)
         "overdue" -> Icons.Default.Error to Color(0xFFE57373)

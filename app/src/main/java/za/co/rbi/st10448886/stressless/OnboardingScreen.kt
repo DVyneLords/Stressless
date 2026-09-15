@@ -21,6 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
+/**
+ * OnboardingScreen — first screen shown to a signed-out user after splash.
+ * "Get Started" leads to Register; "I already have an account" leads to Login.
+ */
 @Composable
 fun OnboardingScreen(onGetStarted: () -> Unit, onHaveAccount: () -> Unit) {
     val language = TaskRepository.language.value

@@ -24,6 +24,12 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
+/**
+ * RegisterScreen — new account creation. Validates that password and
+ * confirm-password match locally before calling Firebase, then delegates
+ * account creation to TaskRepository.register() (Firebase Auth hashes the
+ * password server-side — it is never stored in plain text anywhere).
+ */
 @Composable
 fun RegisterScreen(onRegisterSuccess: () -> Unit, onGoToLogin: () -> Unit) {
     val language = TaskRepository.language.value
@@ -67,6 +73,8 @@ fun RegisterScreen(onRegisterSuccess: () -> Unit, onGoToLogin: () -> Unit) {
         Button(
             onClick = {
                 error = null
+                // Client-side check before touching the network — Firebase itself
+                // doesn't compare password/confirmPassword, so this must be done here.
                 if (password != confirmPassword) {
                     error = "Passwords do not match"
                     return@Button

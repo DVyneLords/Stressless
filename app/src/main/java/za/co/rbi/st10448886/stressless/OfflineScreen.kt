@@ -22,6 +22,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
+/**
+ * OfflineScreen — full-screen overlay shown automatically (by MainActivity)
+ * whenever the device has no internet connection. "Go to My Tasks" lets the
+ * user dismiss the overlay and keep working offline; "Retry" re-checks
+ * connectivity immediately rather than waiting for the next network event.
+ */
 @Composable
 fun OfflineScreen(onGoToTasks: () -> Unit, onRetry: () -> Unit) {
     val language = TaskRepository.language.value
