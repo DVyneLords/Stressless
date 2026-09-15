@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "225144372421",
+    "project_id": "streess-cd572",
+    "storage_bucket": "streess-cd572.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225144372421:android:ac5528f685d01cfee304ac",
+        "android_client_info": {
+          "package_name": "za.co.rbi.st10448886.stressless"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "225144372421-fdhudh5bdm1kibs7a9j4hkouchuuurdb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "za.co.rbi.st10448886.stressless",
+            "certificate_hash": "7729e5aa8351309fc4bd9b835f125e2b2ad653a0"
+          }
+        },
+        {
+          "client_id": "225144372421-ejhmc2olsu45r312h57iuu885it1nrlr.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDpzQuxoOifW4SGd5xzMeIcD9dv5U2Hv9w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "225144372421-ejhmc2olsu45r312h57iuu885it1nrlr.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
