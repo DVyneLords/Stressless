@@ -3,7 +3,7 @@
 Stressless is an Android app (Kotlin + Jetpack Compose) built for South African
 tertiary students to plan, prioritise, and track academic tasks and deadlines.
 
-> **Demo video:** [add your unlisted YouTube link here]
+> **Demo video:** [https://youtu.be/Ck9Kd9frc7Y?si=ehtn-NkWe4xVJACN]
 
 ## Features
 - Email/password registration and login via Firebase Authentication (passwords
