@@ -13,3 +13,9 @@
 .externalNativeBuild
 .cxx
 local.properties
+.idea/
+.env
+*.jks
+*.keystore
+keystore.properties
+app/google-services.json
