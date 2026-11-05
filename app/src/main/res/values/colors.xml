@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Stressless Brand Colors -->
+    <color name="primary">#2F6F4E</color>
+    <color name="primary_dark">#1B4D34</color>
+    <color name="primary_light">#A8D5BA</color>
+    <color name="primary_container">#DCEDE3</color>
+    <color name="on_primary">#FFFFFF</color>
+    <color name="on_primary_container">#1B4D34</color>
+
+    <!-- Accent Colors -->
+    <color name="accent">#FFC107</color>
+    <color name="accent_light">#FFE082</color>
+
+    <!-- Surface Colors -->
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_light">#F8FAF9</color>
+    <color name="surface_dark">#10201A</color>
+    <color name="surface_variant">#E8F0EC</color>
+
+    <!-- Status Colors -->
+    <color name="success">#4CAF50</color>
+    <color name="warning">#FFA726</color>
+    <color name="error">#E57373</color>
+    <color name="info">#64B5F6</color>
+
+    <!-- Priority Colors -->
+    <color name="priority_high">#E57373</color>
+    <color name="priority_medium">#FFD54F</color>
+    <color name="priority_low">#81C784</color>
+
+    <!-- Basic Colors -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="gray_50">#FAFAFA</color>
+    <color name="gray_100">#F5F5F5</color>
+    <color name="gray_200">#EEEEEE</color>
+    <color name="gray_300">#E0E0E0</color>
+    <color name="gray_400">#BDBDBD</color>
+    <color name="gray_500">#9E9E9E</color>
+    <color name="gray_600">#757575</color>
+    <color name="gray_700">#616161</color>
+    <color name="gray_800">#424242</color>
+    <color name="gray_900">#212121</color>
+
+    <!-- Legacy colors (keep for compatibility) -->
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+    <color name="purple_700">#FF3700B3</color>
+    <color name="teal_200">#FF03DAC5</color>
+    <color name="teal_700">#FF018786</color>
+</resources>
