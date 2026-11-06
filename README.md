@@ -68,8 +68,3 @@ See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for a full list of changes made since
 ## AI Tool Usage
 See [AI_USAGE.md](./AI_USAGE.md) for a short write-up on how AI tools were used during this project.
 
-## Screenshots
-[Add app screenshots here]
-
-## Developer
-Developed by [your name / student number] — Stack Masters
