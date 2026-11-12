@@ -63,7 +63,7 @@ Run locally:
 GitHub Actions automatically builds and runs these tests on every push — see the **Actions** tab for status.
 
 ## Release Notes
-See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for a full list of changes made since the prototype.
+See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for a full list of changes made since the project began.
 
 ## AI Tool Usage
 See [AI_USAGE.md](./AI_USAGE.md) for a short write-up on how AI tools were used during this project.
