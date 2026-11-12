@@ -5,12 +5,13 @@ tertiary students to plan, prioritise, and track academic tasks and deadlines.
 
 > **Demo video:** [https://youtu.be/Ck9Kd9frc7Y?si=ehtn-NkWe4xVJACN]
 
-> ## Table of Contents
+>## Table of Contents
 - [Features](#features)
 - [Tech stack](#tech-stack)
 - [Architecture](#architecture)
 - [Running the project](#running-the-project)
 - [Testing](#testing)
+- [Known Limitations](#known-limitations)
 - [Release Notes](#release-notes)
 
 ## Features
@@ -62,6 +63,11 @@ tertiary students to plan, prioritise, and track academic tasks and deadlines.
 Unit tests: `app/src/test/java/za/co/rbi/st10448886/stressless/`
 - `TaskRepositoryTest.kt` — task CRUD, notifications, subtask progress, string lookups
 - `CalendarUtilsTest.kt` — date comparison helper
+
+- ## Known Limitations
+- Task photos are stored as Base64 blobs inside Firestore documents rather
+  than in Cloud Storage, due to the Firebase Spark (free) plan. This increases
+  document size and is not ideal for large images.
 
 Run locally:
 ```
