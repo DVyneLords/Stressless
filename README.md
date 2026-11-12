@@ -5,6 +5,14 @@ tertiary students to plan, prioritise, and track academic tasks and deadlines.
 
 > **Demo video:** [https://youtu.be/Ck9Kd9frc7Y?si=ehtn-NkWe4xVJACN]
 
+> ## Table of Contents
+- [Features](#features)
+- [Tech stack](#tech-stack)
+- [Architecture](#architecture)
+- [Running the project](#running-the-project)
+- [Testing](#testing)
+- [Release Notes](#release-notes)
+
 ## Features
 - Email/password registration and login via Firebase Authentication (passwords
   are hashed server-side, never stored in plain text)
